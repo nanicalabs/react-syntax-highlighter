@@ -7,6 +7,7 @@
 * al
 * antlr4
 * apacheconf
+* apex
 * apl
 * applescript
 * aql
@@ -44,6 +45,7 @@
 * cypher
 * d
 * dart
+* dataweave
 * dax
 * dhall
 * diff
@@ -160,6 +162,7 @@
 * powershell
 * processing
 * prolog
+* promql
 * properties
 * protobuf
 * pug

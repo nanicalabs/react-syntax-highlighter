@@ -1850,6 +1850,25 @@ Token.stringify = function stringify(o, language) {
 };
 
 /**
+ * @param {RegExp} pattern
+ * @param {number} pos
+ * @param {string} text
+ * @param {boolean} lookbehind
+ * @returns {RegExpExecArray | null}
+ */
+function matchPattern(pattern, pos, text, lookbehind) {
+	pattern.lastIndex = pos;
+	var match = pattern.exec(text);
+	if (match && lookbehind && match[1]) {
+		// change the match to remove the text matched by the Prism lookbehind group
+		var lookbehindLength = match[1].length;
+		match.index += lookbehindLength;
+		match[0] = match[0].slice(lookbehindLength);
+	}
+	return match;
+}
+
+/**
  * @param {string} text
  * @param {LinkedList<string | Token>} tokenList
  * @param {any} grammar
@@ -1881,7 +1900,6 @@ function matchGrammar(text, tokenList, grammar, startNode, startPos, rematch) {
 				inside = patternObj.inside,
 				lookbehind = !!patternObj.lookbehind,
 				greedy = !!patternObj.greedy,
-				lookbehindLength = 0,
 				alias = patternObj.alias;
 
 			if (greedy && !patternObj.pattern.global) {
@@ -1915,15 +1933,15 @@ function matchGrammar(text, tokenList, grammar, startNode, startPos, rematch) {
 				}
 
 				var removeCount = 1; // this is the to parameter of removeBetween
+				var match;
 
-				if (greedy && currentNode != tokenList.tail.prev) {
-					pattern.lastIndex = pos;
-					var match = pattern.exec(text);
+				if (greedy) {
+					match = matchPattern(pattern, pos, text, lookbehind);
 					if (!match) {
 						break;
 					}
 
-					var from = match.index + (lookbehind && match[1] ? match[1].length : 0);
+					var from = match.index;
 					var to = match.index + match[0].length;
 					var p = pos;
 
@@ -1957,24 +1975,16 @@ function matchGrammar(text, tokenList, grammar, startNode, startPos, rematch) {
 					str = text.slice(pos, p);
 					match.index -= pos;
 				} else {
-					pattern.lastIndex = 0;
-
-					var match = pattern.exec(str);
+					match = matchPattern(pattern, 0, str, lookbehind);
+					if (!match) {
+						continue;
+					}
 				}
 
-				if (!match) {
-					continue;
-				}
-
-				if (lookbehind) {
-					lookbehindLength = match[1] ? match[1].length : 0;
-				}
-
-				var from = match.index + lookbehindLength,
-					matchStr = match[0].slice(lookbehindLength),
-					to = from + matchStr.length,
+				var from = match.index,
+					matchStr = match[0],
 					before = str.slice(0, from),
-					after = str.slice(to);
+					after = str.slice(from + matchStr.length);
 
 				var reach = pos + str.length;
 				if (rematch && reach > rematch.reach) {
@@ -2000,10 +2010,18 @@ function matchGrammar(text, tokenList, grammar, startNode, startPos, rematch) {
 				if (removeCount > 1) {
 					// at least one Token object was removed, so we have to do some rematching
 					// this can only happen if the current pattern is greedy
-					matchGrammar(text, tokenList, grammar, currentNode.prev, pos, {
+
+					/** @type {RematchOptions} */
+					var nestedRematch = {
 						cause: token + ',' + j,
 						reach: reach
-					});
+					};
+					matchGrammar(text, tokenList, grammar, currentNode.prev, pos, nestedRematch);
+
+					// the reach might have been extended because of the rematching
+					if (rematch && nestedRematch.reach > rematch.reach) {
+						rematch.reach = nestedRematch.reach;
+					}
 				}
 			}
 		}
@@ -3109,16 +3127,20 @@ function normalize(value) {
 
 /* global window, self */
 
-var restore = capture()
-
 // istanbul ignore next - Don't allow Prism to run on page load in browser or
 // to start messaging from workers.
 var ctx =
-  typeof window === 'undefined'
-    ? typeof self === 'undefined'
-      ? {}
-      : self
-    : window
+  typeof globalThis === 'object'
+    ? globalThis
+    : typeof self === 'object'
+    ? self
+    : typeof window === 'object'
+    ? window
+    : typeof global === 'object'
+    ? global
+    : {}
+
+var restore = capture()
 
 ctx.Prism = {manual: true, disableWorkerMessageHandler: true}
 
@@ -3325,18 +3347,18 @@ function attributes(attrs) {
 }
 
 function capture() {
-  var defined = 'Prism' in global
+  var defined = 'Prism' in ctx
   /* istanbul ignore next */
-  var current = defined ? global.Prism : undefined
+  var current = defined ? ctx.Prism : undefined
 
   return restore
 
   function restore() {
     /* istanbul ignore else - Clean leaks after Prism. */
     if (defined) {
-      global.Prism = current
+      ctx.Prism = current
     } else {
-      delete global.Prism
+      delete ctx.Prism
     }
 
     defined = undefined
