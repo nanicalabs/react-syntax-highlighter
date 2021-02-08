@@ -9,8 +9,8 @@
     "@babel/runtime": "^7.3.1",
     "highlight.js": "^10.4.1",
     "lowlight": "^1.17.0",
-    "prismjs": "https://github.com/nanicalabs/prism#8a3be5bceede7c3dea1bcc9deecb7e7054bc0b7e",
-    "refractor": "https://github.com/nanicalabs/refractor#84fd25ef8ecd2ecc8e0b4300547ca359d45be7f1"
+    "prismjs": "https://github.com/nanicalabs/prism.git#8a3be5bceede7c3dea1bcc9deecb7e7054bc0b7e",
+    "refractor": "https://github.com/nanicalabs/refractor.git#84fd25ef8ecd2ecc8e0b4300547ca359d45be7f1"
   },
   "jest": {
     "coverageDirectory": "./coverage/",
